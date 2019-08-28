@@ -329,18 +329,18 @@ private:
 };
 
 template <typename R, typename F>
-class CopyableWrapper
+class PromisedTask
 {
 public:
-   using MyT = CopyableWrapper<R, F>;
+   using MyT = PromisedTask<R, F>;
 
-   CopyableWrapper(Promise<R> && promise, F func)
+   PromisedTask(Promise<R> && promise, F func)
       : m_promise(std::move(promise))
       , m_func(std::move(func))
    {}
-   CopyableWrapper(MyT &&) = default;
+   PromisedTask(MyT &&) = default;
    MyT & operator=(MyT &&) = default;
-   CopyableWrapper(const MyT & rhs)
+   PromisedTask(const MyT & rhs)
       : m_promise(std::move(rhs.m_promise))
       , m_func(std::move(rhs.m_func))
    {}
@@ -365,7 +365,7 @@ template <typename R, typename F>
 inline auto EmbedPromiseIntoTask(Promise<R> && p, F && f)
 {
    using Func = std::remove_reference_t<F>;
-   return CopyableWrapper<R, Func>(std::move(p), std::forward<F>(f));
+   return PromisedTask<R, Func>(std::move(p), std::forward<F>(f));
 }
 
 
