@@ -158,7 +158,6 @@ inline Future<Empty> operator&&(Future<R1> && lhs, Future<R2> && rhs)
    auto rhsCanceller = std::exchange(rhs.m_canceller, nullptr);
 
    auto combinedState = std::make_shared<internal::SharedState<Empty>>();
-   combinedState->active = lhsState->active && rhsState->active;
 
    auto lhsOnFinished = lhsState->GetCallback();
    lhsState->SetCallback([rhsState, combinedState, cb = std::move(lhsOnFinished)](auto r) {
@@ -198,6 +197,7 @@ inline Future<Empty> operator&&(Future<R1> && lhs, Future<R2> && rhs)
       if (rhsCanceller)
          rhsCanceller();
    };
+   combinedState->active = lhsState->active || rhsState->active;
    return combinedFuture;
 }
 
@@ -212,7 +212,6 @@ inline Future<Empty> operator||(Future<R1> && lhs, Future<R2> && rhs)
    auto rhsCanceller = std::exchange(rhs.m_canceller, nullptr);
 
    auto combinedState = std::make_shared<internal::SharedState<Empty>>();
-   combinedState->active = lhsState->active && rhsState->active;
 
    auto lhsOnFinished = lhsState->GetCallback();
    lhsState->SetCallback([rhsState, combinedState, cb = std::move(lhsOnFinished)](auto r) {
@@ -251,6 +250,7 @@ inline Future<Empty> operator||(Future<R1> && lhs, Future<R2> && rhs)
       if (rhsCanceller)
          rhsCanceller();
    };
+   combinedState->active = lhsState->active && rhsState->active;
    return combinedFuture;
 }
 
