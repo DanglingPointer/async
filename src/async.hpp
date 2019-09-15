@@ -102,6 +102,7 @@ public:
       Cancel();
       m_state = std::move(rhs.m_state);
       m_canceller = std::exchange(rhs.m_canceller, nullptr);
+      return *this;
    }
    Future<R> & operator=(const Future<R> &) = delete;
 
@@ -280,6 +281,7 @@ public:
       Terminate();
       m_executor = std::move(rhs.m_executor);
       m_state = std::move(rhs.m_state);
+      return *this;
    }
    Promise<R> & operator=(const Promise<R> &) = delete;
 
@@ -348,6 +350,7 @@ public:
    {
       m_promise = std::move(rhs.m_promise);
       m_func = std::move(rhs.m_func);
+      return *this;
    }
    template <typename... TArgs>
    void operator()(TArgs &&... args) const
