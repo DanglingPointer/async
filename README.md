@@ -23,17 +23,18 @@ A lightweight alternative to `Future` and `Promise`. Starting an asynchronous op
 - A `Callback` can be queried on whether it's been cancelled.
 - When a `Canceller` goes out of scope all its callbacks are automatically cancelled.
 - A `Canceller` has a limit on the number of simultaneously active `Callback`s it can have (default is 128).
-- A `Callback` is **not** one-shot, which means it becomes inactive once it no longer exists (or is cancelled explicitly) rather than once it's been executed.
+- A `Callback` is **not** one-shot, which means it becomes inactive once it no longer exists (or is cancelled explicitly) rather than once it's been invoked.
+- For fire-and-forget operations a detached and/or empty callback can be created using `Canceller::DetachedCb()` and `Canceller::NoCb()`. A callback obtained in this way can be executed after the corresponding canceller's end of life, and cannot have an associated `CallbackId`.
 - `async::Schedule()` is a convenience function to move a callback into an executor.
 
 See `src/async.cpp` for implementation details and description of internal representation.
 
 ### Synchronizers
 
-Helpers for coordinating two or more concurrent operations that execute their `Callback`s on the same thread.
+Helpers for coordinating two or more concurrent operations that run their `Callback`s on the same thread.
 
 - Can keep track of up to 10000 `Callback`s.
-- **Not** thread safe. All tracked callbacks must execute on the same thread.
+- **Not** thread-safe. All tracked callbacks must run on the same thread.
 - `OnAllCompleted`: Allows to set a listener that will be called once every tracked callbacks has been executed at least
  once and the synchronizer object has gone out of scope (whichever happens last).
 - `OnAnyCompleted`: Allows to set a listener that will be called once any one of the tracked callbacks has been executed
