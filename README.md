@@ -11,6 +11,6 @@ Primitives for receiving asynchronous result from a task that's can be run on an
 
 See `async_tests.cpp` for example usage.
 
-### Canceller
+### Callback and Canceller
 
-Simple helper to avoid dangling references. It allows to wrap any void-returning callable object using `MakeCb()`. Callback created in this way will only be executed if the `Canceller` is still alive at the point when the callback is called. The recommended way to use `Canceller` is to privately inherit from it.
+TBD

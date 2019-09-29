@@ -42,12 +42,17 @@ endif()
 ##############################################################################
 
 
-include_directories(${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR}/src)
+
+add_library(async
+            STATIC
+            src/async.cpp)
 
 add_executable(async_test
-  src/async_test.cpp)
+               tests/async_test.cpp)
 target_link_libraries(async_test
-  gtest_main)
+                      async
+                      gtest_main)
 
 enable_testing()
 add_test(NAME async_test COMMAND async_test)

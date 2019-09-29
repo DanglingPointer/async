@@ -1,5 +1,6 @@
-#ifndef ASYNC_HPP
-#define ASYNC_HPP
+#ifndef FUTURE_HPP
+#define FUTURE_HPP
+
 /**
  *   Copyright 2019 Mikhail Vasilyev
  *
@@ -15,6 +16,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
+
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -81,7 +83,7 @@ class Future
 {
    using State = internal::SharedState<R>;
 
-   explicit Future(std::shared_ptr<State> state)
+   explicit Future(std::shared_ptr<State> state) noexcept
       : m_state(std::move(state))
    {
       m_state->hasFuture = true;
@@ -91,7 +93,7 @@ public:
    using Result = typename State::Result;
    using Callback = typename State::Callback;
 
-   Future() = default;
+   Future() noexcept = default;
    Future(Future<R> && rhs)
       : m_state(std::move(rhs.m_state))
       , m_canceller(std::exchange(rhs.m_canceller, nullptr))
@@ -99,9 +101,11 @@ public:
    Future(const Future &) = delete;
    Future<R> & operator=(Future<R> && rhs)
    {
-      Cancel();
-      m_state = std::move(rhs.m_state);
-      m_canceller = std::exchange(rhs.m_canceller, nullptr);
+      if (m_state != rhs.m_state) {
+         Cancel();
+         m_state = std::move(rhs.m_state);
+         m_canceller = std::exchange(rhs.m_canceller, nullptr);
+      }
       return *this;
    }
    Future<R> & operator=(const Future<R> &) = delete;
@@ -186,11 +190,8 @@ inline Future<Empty> operator&&(Future<R1> && lhs, Future<R2> && rhs)
    });
 
    Future<Empty> combinedFuture(combinedState);
-   combinedFuture.m_canceller = [
-      lhsState, rhsState, lhsCanceller = std::move(lhsCanceller),
-      rhsCanceller = std::move(rhsCanceller)
-   ]
-   {
+   combinedFuture.m_canceller = [lhsState, rhsState, lhsCanceller = std::move(lhsCanceller),
+                                 rhsCanceller = std::move(rhsCanceller)] {
       lhsState->hasFuture = false;
       rhsState->hasFuture = false;
       if (lhsCanceller)
@@ -239,11 +240,8 @@ inline Future<Empty> operator||(Future<R1> && lhs, Future<R2> && rhs)
    });
 
    Future<Empty> combinedFuture(combinedState);
-   combinedFuture.m_canceller = [
-      lhsState, rhsState, lhsCanceller = std::move(lhsCanceller),
-      rhsCanceller = std::move(rhsCanceller)
-   ]
-   {
+   combinedFuture.m_canceller = [lhsState, rhsState, lhsCanceller = std::move(lhsCanceller),
+                                 rhsCanceller = std::move(rhsCanceller)] {
       lhsState->hasFuture = false;
       rhsState->hasFuture = false;
       if (lhsCanceller)
@@ -254,6 +252,8 @@ inline Future<Empty> operator||(Future<R1> && lhs, Future<R2> && rhs)
    combinedState->active = lhsState->active && rhsState->active;
    return combinedFuture;
 }
+
+using CombinedFuture = Future<Empty>;
 
 using Executor = std::function<void(std::function<void()>)>;
 
@@ -278,9 +278,11 @@ public:
    Promise(const Promise<R> &) = delete;
    Promise<R> & operator=(Promise<R> && rhs)
    {
-      Terminate();
-      m_executor = std::move(rhs.m_executor);
-      m_state = std::move(rhs.m_state);
+      if (m_state != rhs.m_state) {
+         Terminate();
+         m_executor = std::move(rhs.m_executor);
+         m_state = std::move(rhs.m_state);
+      }
       return *this;
    }
    Promise<R> & operator=(const Promise<R> &) = delete;
@@ -311,7 +313,7 @@ public:
          f.m_canceller = std::move(canceller);
       return f;
    }
-   bool IsCancelled() const { return !m_state || !m_state->hasFuture; }
+   bool IsCancelled() const noexcept { return !m_state || !m_state->hasFuture; }
 
 private:
    void Terminate()
@@ -371,31 +373,6 @@ inline auto EmbedPromiseIntoTask(Promise<R> && p, F && f)
    return PromisedTask<R, Func>(std::move(p), std::forward<F>(f));
 }
 
-
-class Canceller
-{
-   struct Token
-   {};
-
-public:
-   Canceller()
-      : m_token(std::make_shared<Token>())
-   {}
-   void Reset() { m_token = std::make_shared<Token>(); }
-   template <typename F>
-   auto MakeCb(F && callback) const
-   {
-      return [token = std::weak_ptr<Token>(m_token), cb = std::forward<F>(callback)](auto &&... args)
-      {
-         if (!token.expired())
-            cb(std::forward<decltype(args)>(args)...);
-      };
-   }
-
-private:
-   std::shared_ptr<Token> m_token;
-};
-
 } // namespace async
 
-#endif // ASYNC_HPP
+#endif // FUTURE_HPP
