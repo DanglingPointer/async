@@ -19,7 +19,7 @@ A lightweight alternative to `Future` and `Promise`. Starting an asynchronous op
 
 - `Callback` is a functor that can only be created by a `Canceller`. It can be cancelled and its state can be tracked
  using member functions of the canceller that created it.
-- A `CallbackId` is uniquely associated with a `Callback` and can be used to track it or cancel it.
+- A `CallbackId` can be uniquely associated with a `Callback` and is used to monitor its state or cancel it.
 - A `Callback` can be queried on whether it's been cancelled.
 - When a `Canceller` goes out of scope all its callbacks are automatically cancelled.
 - A `Canceller` has a limit on the number of simultaneously active `Callback`s it can have (default is 128).
