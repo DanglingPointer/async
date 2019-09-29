@@ -83,7 +83,7 @@ public:
       , m_callback(other.m_callback)
       , m_flagRef(nullptr)
    {
-      assert(false && "Avoid using copy ctor");
+      assert(false && "Try to avoid using copy ctor"); // temp
    }
    Callback(Callback<Rs...> && other) noexcept // noexcept to force std::vector to use this ctor when resizing
       : m_token(std::move(other.m_token))

@@ -269,9 +269,6 @@ protected:
 } // namespace internal
 
 
-// Allows to set a listener that will be called once all tracked callbacks have executed AND the
-// synchronizer object has gone out of scope (whichever happens last). Can track up to 10000
-// callbacks. NOT thread-safe (all tracked callbacks must execute in the same thread).
 class OnAllCompleted : public internal::SynchronizerBase<OnAllCompleted>
 {
    friend class internal::SynchronizerBase<OnAllCompleted>;
@@ -320,9 +317,6 @@ private:
    }
 };
 
-// Allows to set a listener that will be called once one of the tracked callbacks has executed AND
-// the synchronizer object has gone out of scope (whichever happens last). Can track up to 10000
-// callbacks. NOT thread-safe (all tracked callbacks must execute in the same thread).
 class OnAnyCompleted : public internal::SynchronizerBase<OnAnyCompleted>
 {
    friend class internal::SynchronizerBase<OnAnyCompleted>;

@@ -1,6 +1,3 @@
-#include "callback.hpp"
-#include "canceller.hpp"
-
 /**
  *   Copyright 2019 Mikhail Vasilyev
  *
@@ -16,6 +13,9 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
+
+#include "callback.hpp"
+#include "canceller.hpp"
 
 /**
  * Flag layout:
@@ -42,7 +42,7 @@
  * ID - unique operation id in order to be able to reuse a flag once its previous operation has
  *      finished. Incremented each time the flag is used for a new operation.
  *      NB! Will wrap around eventually which might cause CallbackId clashes. To mitigate this
- *      slightly, a CallbackId is set to nullopt once we know that the operation is inactive or
+ *      somewhat, a CallbackId is set to nullopt once we know that the operation is inactive or
  *      cancelled.
  *
  * INDEX - position of flag in the array storing all flags (i.e. m_activeFlags in Canceller).
