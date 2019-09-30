@@ -43,11 +43,11 @@ public:
 private:
    std::atomic<uint8_t> * m_block;
 
-   friend bool operator==(const AtomicFlagRef & lhs, const AtomicFlagRef & rhs) noexcept;
+   friend bool operator==(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept;
 };
 
-bool operator==(const AtomicFlagRef & lhs, const AtomicFlagRef & rhs) noexcept;
-bool operator!=(const AtomicFlagRef & lhs, const AtomicFlagRef & rhs) noexcept;
+bool operator==(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept;
+bool operator!=(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept;
 
 struct CancellerToken
 {};

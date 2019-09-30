@@ -30,6 +30,7 @@ struct AtomicFlagsArray : public std::array<std::atomic<uint8_t>, N>
 {
    static_assert(ATOMIC_CHAR_LOCK_FREE == 2, "Use future/promise instead");
    static_assert(sizeof(std::atomic<uint8_t>) == sizeof(uint8_t), "Use future/promise instead");
+   static_assert(N > 0U);
 };
 
 uint32_t MakeCallbackId(AtomicFlagRef flagRef, size_t index) noexcept;
@@ -107,13 +108,16 @@ class Canceller
 public:
    static constexpr size_t MAX_SIMULT_CALLBACKS = N;
    using MyT = Canceller<MAX_SIMULT_CALLBACKS>;
-   using CallbackId = std::optional<uint32_t>;
+   struct CallbackId
+   {
+      std::optional<uint32_t> value;
+   };
 
    Canceller()
       : m_token(std::make_shared<internal::CancellerToken>())
       , m_lastUsedFlag(std::begin(m_activeFlags))
    {}
-   Canceller(MyT &&) noexcept = delete;
+   Canceller(MyT &&) = delete;
    Canceller(const MyT &)
       : Canceller()
    { /* To ensure correct behaviour when inheriting from Canceller */
@@ -126,34 +130,33 @@ public:
    void InvalidateCallbacks()
    {
       m_token = std::make_shared<internal::CancellerToken>();
-      memset(m_activeFlags.data(), 0, m_activeFlags.size());
-      m_lastUsedFlag = std::begin(m_activeFlags);
+      for (auto & flag : m_activeFlags)
+         internal::AtomicFlagRef(&flag).Deactivate();
    }
    void CancelCallback(CallbackId & callbackId) noexcept
    {
-      if (!callbackId)
+      if (!callbackId.value)
          return;
-      auto index = internal::GetFlagIndex(*callbackId);
+      auto index = internal::GetFlagIndex(*callbackId.value);
       internal::AtomicFlagRef flag(&m_activeFlags[index]);
-      if (flag.GetId() == internal::GetOperationId(*callbackId))
+      if (flag.GetId() == internal::GetOperationId(*callbackId.value))
          flag.Cancel();
-      callbackId = std::nullopt;
+      callbackId.value = std::nullopt;
    }
-   // Returns false if the callback object no longer exists. Note that
    bool IsActive(CallbackId & callbackId) const noexcept
    {
-      if (!callbackId)
+      if (!callbackId.value)
          return false;
-      auto index = internal::GetFlagIndex(*callbackId);
+      auto index = internal::GetFlagIndex(*callbackId.value);
       internal::AtomicFlagRef flag(&m_activeFlags[index]);
-      bool active = flag.GetId() == internal::GetOperationId(*callbackId) && flag.IsAlive() &&
+      bool active = flag.GetId() == internal::GetOperationId(*callbackId.value) && flag.IsAlive() &&
                     !flag.IsCancelled();
       if (!active)
-         callbackId = std::nullopt;
+         callbackId.value = std::nullopt;
       return active;
    }
    template <typename F>
-   auto Wrap(F && func) const noexcept
+   auto Wrap(F && func) const
    {
       return [token = std::weak_ptr<internal::CancellerToken>(m_token),
               f = std::forward<F>(func)](auto &&... args) {
@@ -178,7 +181,10 @@ public:
       return DeducedCallbackType<F>(internal::GlobalCancellerToken(), std::forward<F>(callback),
                                     nullptr);
    }
-   Callback<> NoCb() const { return Callback<>(nullptr, nullptr, nullptr); }
+   Callback<> NoCb() const
+   {
+      return Callback<>(nullptr, nullptr, nullptr);
+   }
 
 private:
    internal::AtomicFlagRef RegisterCallback(CallbackId * callbackId) const
@@ -190,15 +196,14 @@ private:
             ++m_lastUsedFlag;
             if (m_lastUsedFlag == std::end(m_activeFlags))
                m_lastUsedFlag = std::begin(m_activeFlags);
-            if (!internal::AtomicFlagRef(&(*m_lastUsedFlag)).IsAlive()) {
+            if (!internal::AtomicFlagRef(&(*m_lastUsedFlag)).IsAlive())
                return std::distance(std::begin(m_activeFlags), m_lastUsedFlag);
-            }
          }
          throw std::runtime_error("Number of callbacks exceeds Canceller capacity");
       }();
       internal::AtomicFlagRef flag(&(*m_lastUsedFlag));
       flag.Activate();
-      callbackId->emplace(internal::MakeCallbackId(flag, index));
+      callbackId->value.emplace(internal::MakeCallbackId(flag, index));
       return flag;
    }
    std::shared_ptr<internal::CancellerToken> m_token;
@@ -222,7 +227,10 @@ public:
    {
       assert(m_state->listener);
    }
-   ~SynchronizerBase() { static_cast<T *>(this)->Detach(); }
+   ~SynchronizerBase()
+   {
+      static_cast<T *>(this)->Detach();
+   }
    SynchronizerBase(T && other) noexcept
       : m_state(other.m_state)
    {
@@ -356,12 +364,10 @@ private:
             return;
 
          ++state->firedCount;
-         if (state->firedCount == 1U && state->trackedCount < 10'000U) {
+         if (state->firedCount == 1U && state->trackedCount < 10'000U)
             state->listener();
-         }
-         if (state->firedCount == state->trackedCount) {
+         if (state->firedCount == state->trackedCount)
             delete state;
-         }
          state = nullptr;
       };
    }

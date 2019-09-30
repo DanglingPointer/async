@@ -397,10 +397,10 @@ TEST_F(CancellerFixture, exceeding_max_simult_callbacks_throws_exception)
    size_t invocationCount = 0U;
    CallbackId id{};
    std::vector<Callback<>> cbs;
-   for (int i = 0; i < Canceller<>::MAX_SIMULT_CALLBACKS; ++i) {
+   for (size_t i = 0; i < Canceller<>::MAX_SIMULT_CALLBACKS; ++i) {
       CallbackId prev = id;
       cbs.emplace_back(MakeCb([&] { invocationCount++; }, &id));
-      EXPECT_NE(prev, id);
+      EXPECT_NE(prev.value, id.value);
       EXPECT_TRUE(IsActive(id));
    }
 

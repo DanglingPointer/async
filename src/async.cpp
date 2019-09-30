@@ -96,11 +96,11 @@ void async::internal::AtomicFlagRef::Cancel() noexcept
    *m_block |= MASK_CANCELLED;
 }
 
-bool async::internal::operator==(const AtomicFlagRef & lhs, const AtomicFlagRef & rhs) noexcept
+bool async::internal::operator==(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept
 {
    return lhs.m_block == rhs.m_block;
 }
-bool async::internal::operator!=(const AtomicFlagRef & lhs, const AtomicFlagRef & rhs) noexcept
+bool async::internal::operator!=(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept
 {
    return !(lhs == rhs);
 }
