@@ -4,6 +4,7 @@
 #include <limits>
 #include "future.hpp"
 #include "canceller.hpp"
+#include "mempool.hpp"
 
 namespace {
 using namespace async;
@@ -654,6 +655,49 @@ TEST_F(CancellerFixture, synchronizer_can_be_move_constructed_and_move_assigned)
 
    sync = OnAnyCompleted([&] { syncInvocationCount++; });
    EXPECT_NO_THROW(sync.Track(cb1));
+}
+
+TEST(MempoolTest, mempool_shrinks_and_resizes_correctly)
+{
+   {
+      mem::Pool<2, 8, 32, 64> pool(5);
+      auto p = pool.Make<float>(35.0f);
+      EXPECT_EQ(5 * 4, pool.GetBlockCount());
+      EXPECT_EQ((2+8+32+64) * 5, pool.GetSize());
+
+      pool.ShrinkToFit();
+      EXPECT_EQ(1U, pool.GetBlockCount());
+      EXPECT_EQ(8, pool.GetSize());
+
+      p.Reset();
+      pool.ShrinkToFit();
+      EXPECT_EQ(0U, pool.GetBlockCount());
+      EXPECT_EQ(0U, pool.GetSize());
+
+      pool.Resize(6U);
+      EXPECT_EQ(6U * 4, pool.GetBlockCount());
+      EXPECT_EQ((2+8+32+64) * 6, pool.GetSize());
+   }
+
+   {
+      mem::Pool<4, 16> pool(5);
+      auto p = pool.Make<float>(35.0f);
+      EXPECT_EQ(5U * 2, pool.GetBlockCount());
+      EXPECT_EQ((4+16) * 5, pool.GetSize());
+
+      pool.ShrinkToFit();
+      EXPECT_EQ(1U, pool.GetBlockCount());
+      EXPECT_EQ(4U, pool.GetSize());
+
+      p.Reset();
+      pool.ShrinkToFit();
+      EXPECT_EQ(0U, pool.GetBlockCount());
+      EXPECT_EQ(0U, pool.GetSize());
+
+      pool.Resize(6U);
+      EXPECT_EQ(6U * 2, pool.GetBlockCount());
+      EXPECT_EQ((4+16) * 6, pool.GetSize());
+   }
 }
 
 } // namespace
