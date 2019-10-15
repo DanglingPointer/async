@@ -145,6 +145,8 @@ private:
 template <typename X, typename... Rs, typename... TArgs>
 inline void Schedule(X executor, Callback<Rs...> && cb, TArgs &&... args)
 {
+   if (cb.Cancelled())
+      return;
    executor(
       [cb = std::move(cb), argTuple = std::make_tuple(std::forward<TArgs>(args)...)]() mutable {
          std::apply(cb, std::move(argTuple));
