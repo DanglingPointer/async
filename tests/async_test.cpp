@@ -461,8 +461,8 @@ TEST_F(CancellerFixture, on_all_completed_executes_once_all_have_completed)
    bool cb1Finished = false;
    bool cb2Finished = false;
 
-   Callback<> cb1 = NoCb();
-   Callback<> cb2 = NoCb();
+   Callback<> cb1 = DetachedCb();
+   Callback<> cb2 = DetachedCb();
 
    {
       OnAllCompleted sync([&] { allFinished = true; });
@@ -547,8 +547,8 @@ TEST_F(CancellerFixture, on_any_completed_executes_once_first_has_completed)
    bool cb1Finished = false;
    bool cb2Finished = false;
 
-   Callback<> cb1 = NoCb();
-   Callback<> cb2 = NoCb();
+   Callback<> cb1 = DetachedCb();
+   Callback<> cb2 = DetachedCb();
 
    {
       OnAnyCompleted sync([&] { anyFinished = true; });

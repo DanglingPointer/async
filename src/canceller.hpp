@@ -184,9 +184,9 @@ public:
                                     nullptr);
    }
    template <typename... TArgs>
-   Callback<TArgs...> NoCb() const
+   Callback<TArgs...> DetachedCb() const
    {
-      return Callback<TArgs...>(nullptr, nullptr, nullptr);
+      return Callback<TArgs...>(internal::GlobalCancellerToken(), nullptr, nullptr);
    }
 
 private:

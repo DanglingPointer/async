@@ -50,10 +50,10 @@
  */
 
 namespace {
-constexpr auto MASK_ALIVE = 1 << 7;
-constexpr auto MASK_CANCELLED = 1 << 6;
-constexpr auto ID_LENGTH = 6;
-constexpr auto MASK_ID = (1 << ID_LENGTH) - 1;
+constexpr uint8_t MASK_ALIVE = 1 << 7;
+constexpr uint8_t MASK_CANCELLED = 1 << 6;
+constexpr int ID_LENGTH = 6;
+constexpr uint8_t MASK_ID = (1 << ID_LENGTH) - 1;
 } // namespace
 
 async::internal::AtomicFlagRef::AtomicFlagRef(std::atomic<uint8_t> * block) noexcept
@@ -66,34 +66,34 @@ bool async::internal::AtomicFlagRef::IsEmpty() const noexcept
 bool async::internal::AtomicFlagRef::IsAlive() const noexcept
 {
    assert(!IsEmpty());
-   return (*m_block & MASK_ALIVE) != 0;
+   return (m_block->load() & MASK_ALIVE) != 0;
 }
 bool async::internal::AtomicFlagRef::IsCancelled() const noexcept
 {
    assert(!IsEmpty());
-   return (*m_block & MASK_CANCELLED) != 0;
+   return (m_block->load() & MASK_CANCELLED) != 0;
 }
 uint32_t async::internal::AtomicFlagRef::GetId() const noexcept
 {
    assert(!IsEmpty());
-   return *m_block & MASK_ID;
+   return m_block->load() & MASK_ID;
 }
 void async::internal::AtomicFlagRef::Activate() noexcept
 {
    assert(!IsEmpty());
-   ++(*m_block);
-   *m_block |= MASK_ALIVE;
-   *m_block &= ~MASK_CANCELLED;
+   m_block->fetch_add(1);
+   m_block->fetch_or(MASK_ALIVE);
+   m_block->fetch_and(static_cast<uint8_t>(~MASK_CANCELLED));
 }
 void async::internal::AtomicFlagRef::Deactivate() noexcept
 {
    assert(!IsEmpty());
-   *m_block &= ~MASK_ALIVE;
+   m_block->fetch_and(static_cast<uint8_t>(~MASK_ALIVE));
 }
 void async::internal::AtomicFlagRef::Cancel() noexcept
 {
    assert(!IsEmpty());
-   *m_block |= MASK_CANCELLED;
+   m_block->fetch_or(MASK_CANCELLED);
 }
 
 bool async::internal::operator==(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept
