@@ -70,7 +70,7 @@ struct CallbackTypeDeducer
    using type = typename DeduceCallbackTypeHelper<decltype(&F::operator())>::type;
 };
 template <>
-struct CallbackTypeDeducer<nullptr_t>
+struct CallbackTypeDeducer<std::nullptr_t>
 {
    using type = Callback<>;
 };

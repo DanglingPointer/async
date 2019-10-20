@@ -93,7 +93,7 @@ public:
    Callback<Rs...> & operator=(Callback<Rs...> && other) noexcept
    {
       if (m_flagRef.IsEmpty() || other.m_flagRef.IsEmpty() || m_flagRef != other.m_flagRef) {
-         this->~Callback();
+         Deactivate();
          m_token = std::move(other.m_token);
          m_callback = std::exchange(other.m_callback, nullptr);
          m_flagRef = std::exchange(other.m_flagRef, nullptr);
@@ -102,10 +102,7 @@ public:
    }
    ~Callback()
    {
-      if (!m_flagRef.IsEmpty()) {
-         if (auto t = m_token.lock())
-            m_flagRef.Deactivate();
-      }
+      Deactivate();
    }
    bool Cancelled() const noexcept
    {
@@ -137,6 +134,13 @@ public:
    }
 
 private:
+   void Deactivate()
+   {
+      if (!m_flagRef.IsEmpty()) {
+         if (auto t = m_token.lock())
+            m_flagRef.Deactivate();
+      }
+   }
    std::weak_ptr<internal::CancellerToken> m_token;
    std::function<void(Rs...)> m_callback;
    internal::AtomicFlagRef m_flagRef;
