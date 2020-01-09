@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <type_traits>
 
 namespace mem {
 
@@ -15,7 +16,7 @@ class PoolPtr
    using Myt = PoolPtr<T>;
    using DeleterFn = void(*)(void *, T *);
 
-   PoolPtr(T * obj, void * mempool, DeleterFn dealloc) noexcept
+   PoolPtr(std::add_pointer_t<T> obj, void * mempool, DeleterFn dealloc) noexcept
        : m_obj(obj)
        , m_pool(mempool)
        , m_dealloc(dealloc)
