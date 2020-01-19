@@ -60,7 +60,7 @@ template <size_t... Ss>
 class Pool;
 
 template <size_t S, size_t... Ss>
-class Pool<S, Ss...> : private Pool<Ss...>
+class Pool<S, Ss...> : protected Pool<Ss...>
 {
 public:
    static constexpr size_t BLOCK_SIZE = S;
