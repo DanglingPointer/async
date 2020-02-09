@@ -700,4 +700,26 @@ TEST(MempoolTest, mempool_shrinks_and_resizes_correctly)
    }
 }
 
+TEST(MempoolTest, mempool_cleans_up_when_constructor_throws)
+{
+   struct MyException {};
+   struct Thrower
+   {
+      Thrower() {
+         throw MyException{};
+      }
+   };
+
+   mem::Pool<2, 8, 32, 64> pool(5);
+   mem::PoolPtr<Thrower> p;
+
+   EXPECT_THROW({
+      p = pool.Make<Thrower>();
+   }, MyException);
+
+   pool.ShrinkToFit();
+   EXPECT_EQ(0U, pool.GetBlockCount());
+   EXPECT_EQ(0U, pool.GetSize());
+}
+
 } // namespace

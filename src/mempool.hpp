@@ -135,16 +135,25 @@ protected:
       static_assert(alignof(T) <= alignof(std::max_align_t));
       static_assert(sizeof(T) <= BLOCK_SIZE);
 
-      for (auto it = std::begin(m_blocks); it != std::end(m_blocks); ++it) {
-         if (it->taken.test_and_set(std::memory_order_acquire))
-            continue;
-         T * ret = new(internal::get_buffer(*it)) T(std::forward<TArgs>(args)...);
-         m_blocks.splice(std::cend(m_blocks), m_blocks, it); // move to the end
-         return ret;
+      T * ret = nullptr;
+
+      auto it = std::begin(m_blocks);
+      for (; it != std::end(m_blocks); ++it) {
+         if (!it->taken.test_and_set(std::memory_order_acquire)) {
+            m_blocks.splice(std::cend(m_blocks), m_blocks, it); // move to the end
+            break;
+         }
       }
-      auto it = m_blocks.emplace(std::cend(m_blocks));
-      it->taken.test_and_set();
-      T * ret = new(internal::get_buffer(*it)) T(std::forward<TArgs>(args)...);
+      if (it == std::end(m_blocks)) {
+         it = m_blocks.emplace(it);
+      }
+      try {
+         ret = new(internal::get_buffer(*it)) T(std::forward<TArgs>(args)...);
+      }
+      catch (...) {
+         it->taken.clear(std::memory_order_release);
+         throw;
+      }
       return ret;
    }
    template <typename T>
