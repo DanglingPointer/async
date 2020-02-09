@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <limits>
 #include <list>
+#include <memory>
 #include <type_traits>
 #include "poolptr.hpp"
 
@@ -88,6 +89,19 @@ public:
       return PoolPtr<T>(
          P::template Allocate<T>(std::forward<TArgs>(args)...),
          this,
+         deallocator);
+   }
+
+   template <typename T, typename... TArgs>
+   std::shared_ptr<T> MakeShared(TArgs &&... args)
+   {
+      using P = internal::SuitablePool<Myt, T>;
+
+      auto deallocator = [this] (T * obj) {
+         this->P::Deallocate(obj);
+      };
+      return std::shared_ptr<T>(
+         P::template Allocate<T>(std::forward<TArgs>(args)...),
          deallocator);
    }
 
