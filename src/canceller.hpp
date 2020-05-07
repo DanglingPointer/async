@@ -122,11 +122,6 @@ public:
       : Canceller()
    { /* To ensure correct behaviour when inheriting from Canceller */
    }
-   ~Canceller()
-   {
-      while (m_token.use_count() > 1)
-         ;
-   }
    void InvalidateCallbacks()
    {
       m_token = std::make_shared<internal::CancellerToken>();

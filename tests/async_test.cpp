@@ -2,6 +2,7 @@
 #include <deque>
 #include <functional>
 #include <limits>
+#include <optional>
 #include "future.hpp"
 #include "canceller.hpp"
 #include "mempool.hpp"
@@ -655,6 +656,16 @@ TEST_F(CancellerFixture, synchronizer_can_be_move_constructed_and_move_assigned)
 
    sync = OnAnyCompleted([&] { syncInvocationCount++; });
    EXPECT_NO_THROW(sync.Track(cb1));
+}
+
+TEST_F(CancellerFixture, no_deadlock_when_destroying_canceller_from_callback)
+{
+   std::optional<Canceller<>> canceller;
+   canceller.emplace();
+
+   auto cb = canceller->MakeCb([&] { canceller.reset(); });
+   cb();
+   SUCCEED();
 }
 
 TEST(MempoolTest, mempool_shrinks_and_resizes_correctly)
