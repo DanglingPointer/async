@@ -3,9 +3,13 @@
 #include <functional>
 #include <limits>
 #include <optional>
+#include <unordered_set>
+#include <mutex>
 #include "future.hpp"
 #include "canceller.hpp"
 #include "mempool.hpp"
+#include "workerpool.hpp"
+#include "workerpool.cpp"
 
 namespace {
 using namespace async;
@@ -787,6 +791,196 @@ TEST(MempoolTest, mempool_cleans_up_when_constructor_throws)
    pool.ShrinkToFit();
    EXPECT_EQ(0U, pool.GetBlockCount());
    EXPECT_EQ(0U, pool.GetSize());
+}
+
+struct TestWorkerPoolTraits : DefaultWorkerPoolTraits
+{
+   static constexpr size_t MIN_SIZE = 2U;
+   static constexpr size_t MAX_SIZE = 4U;
+   static constexpr auto MAX_LINGER = std::chrono::seconds(10);
+   static constexpr auto TIMER_RESOLUTION = std::chrono::milliseconds(100);
+   using TaskType = std::function<void()>;
+   static constexpr bool JOIN_THREADS = true;
+};
+
+using ThreadPool = WorkerPool<TestWorkerPoolTraits>;
+
+class WorkerPoolFixture : public ::testing::Test
+{
+protected:
+   struct TestWorkerPoolTraits : DefaultWorkerPoolTraits
+   {
+      static constexpr size_t MIN_SIZE = 2U;
+      static constexpr size_t MAX_SIZE = 4U;
+      static constexpr auto MAX_LINGER = std::chrono::milliseconds(500);
+      static constexpr auto TIMER_RESOLUTION = std::chrono::nanoseconds(1);
+      using TaskType = std::function<void()>;
+      static constexpr bool JOIN_THREADS = true;
+   };
+   using ThreadPool = WorkerPool<TestWorkerPoolTraits>;
+
+   WorkerPoolFixture() = default;
+
+   std::function<void(std::string)> GetLogger()
+   {
+      return [this] (auto str) {
+         std::lock_guard lg(logMutex);
+         loglines.push_back(std::move(str));
+      };
+   }
+   std::function<std::chrono::steady_clock::time_point()> GetTime()
+   {
+      return [this] {
+         std::lock_guard lg(nowMutex);
+         return now;
+      };
+   }
+
+   std::vector<std::string> loglines;
+   std::chrono::steady_clock::time_point now;
+   std::mutex nowMutex;
+   std::mutex logMutex;
+};
+
+
+TEST_F(WorkerPoolFixture, workerpool_executes_in_parallel_in_different_threads)
+{
+   ThreadPool p(GetLogger(), GetTime());
+   std::this_thread::sleep_for(500ms);
+   EXPECT_EQ(2u, p.GetWorkerCount());
+
+   std::atomic_bool canProceed1 = false;
+   std::atomic_bool canProceed2 = false;
+
+   std::atomic_bool started1 = false;
+   std::atomic_bool started2 = false;
+
+   std::thread::id id1;
+   std::thread::id id2;
+
+   p.Execute([&] {
+      started1 = true;
+      id1 = std::this_thread::get_id();
+      while (!canProceed1)
+         std::this_thread::yield();
+   });
+   p.Execute([&] {
+      started2 = true;
+      id2 = std::this_thread::get_id();
+      while (!canProceed2)
+         std::this_thread::yield();
+   });
+
+   while (!started1)
+      std::this_thread::yield();
+   while (!started2)
+      std::this_thread::yield();
+   EXPECT_NE(id1, id2);
+   EXPECT_EQ(ThreadPool::MIN_WORKER_COUNT, p.GetWorkerCount());
+
+   canProceed1 = true;
+   canProceed2 = true;
+}
+
+TEST_F(WorkerPoolFixture, workerpool_grows_until_max_capacity)
+{
+   ThreadPool p(GetLogger(), GetTime());
+   std::this_thread::sleep_for(500ms);
+
+   std::atomic_uint32_t startedCount = 0U;
+   std::atomic_uint32_t stoppedCount = 0U;
+   std::atomic_bool canProceed = false;
+
+   std::unordered_set<std::thread::id> threadIds;
+   std::mutex mut;
+
+   for (size_t i = 0; i < ThreadPool::MAX_WORKER_COUNT + 1; ++i) {
+      p.Execute([&] {
+         {
+            std::lock_guard lg(mut);
+            threadIds.insert(std::this_thread::get_id());
+         }
+         startedCount++;
+         while (!canProceed)
+            std::this_thread::yield();
+         stoppedCount++;
+      });
+      std::this_thread::sleep_for(100ms);
+   }
+   while (startedCount != ThreadPool::MAX_WORKER_COUNT)
+      std::this_thread::yield();
+   canProceed = true;
+   while (stoppedCount != ThreadPool::MAX_WORKER_COUNT + 1)
+      std::this_thread::yield();
+   EXPECT_EQ(ThreadPool::MAX_WORKER_COUNT, threadIds.size());
+   EXPECT_EQ(ThreadPool::MAX_WORKER_COUNT, p.GetWorkerCount());
+   std::this_thread::sleep_for(TestWorkerPoolTraits::MAX_LINGER + 100ms);
+   EXPECT_EQ(ThreadPool::MIN_WORKER_COUNT, p.GetWorkerCount());
+}
+
+TEST_F(WorkerPoolFixture, timer_fires_after_timeout)
+{
+   ThreadPool p(GetLogger(), GetTime());
+   std::this_thread::sleep_for(500ms);
+
+   std::atomic_bool done = false;
+   p.ExecuteIn(10'000ms, [&] { done = true; });
+   {
+      std::lock_guard lg(nowMutex);
+      now += 9999ms;
+   }
+   std::this_thread::sleep_for(100ms);
+   EXPECT_FALSE(done);
+   {
+      std::lock_guard lg(nowMutex);
+      now += 1ms;
+   }
+   while (!done)
+      std::this_thread::yield();
+   SUCCEED();
+
+   done = false;
+   p.ExecuteAt(now, [&] { done = true; });
+   while (!done)
+      std::this_thread::yield();
+   SUCCEED();
+
+   done = false;
+   p.ExecuteAt(now + 10000ms, [&] { done = true; });
+   {
+      std::lock_guard lg(nowMutex);
+      now += 9999ms;
+   }
+   std::this_thread::sleep_for(100ms);
+   EXPECT_FALSE(done);
+   {
+      std::lock_guard lg(nowMutex);
+      now += 1ms;
+   }
+   while (!done)
+      std::this_thread::yield();
+   SUCCEED();
+}
+
+TEST_F(WorkerPoolFixture, worker_catches_exceptions)
+{
+   ThreadPool p(GetLogger(), GetTime());
+   std::this_thread::sleep_for(500ms);
+
+   std::atomic_bool done = false;
+   p.Execute([&] {
+      done = true;
+      throw 42;
+   });
+
+   while(!done)
+      std::this_thread::yield();
+
+   std::lock_guard lg(logMutex);
+   EXPECT_EQ(1u, loglines.size());
+
+   const char loglineStart[] = "Uncaught exception in thread";
+   EXPECT_STREQ(loglineStart, loglines.back().substr(0, sizeof(loglineStart) - 1).c_str());
 }
 
 } // namespace
