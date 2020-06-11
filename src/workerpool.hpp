@@ -38,6 +38,7 @@ struct DefaultWorkerPoolTraits
    static constexpr auto TIMER_RESOLUTION = std::chrono::milliseconds(100);
    using TaskType = std::function<void()>;
    static constexpr bool JOIN_THREADS = true;
+   static constexpr bool CATCH_EXCEPTIONS = true;
 
    static_assert(MIN_SIZE > 0);
    static_assert(MAX_SIZE >= MIN_SIZE);

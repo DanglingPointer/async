@@ -816,6 +816,7 @@ protected:
       static constexpr auto TIMER_RESOLUTION = std::chrono::nanoseconds(1);
       using TaskType = std::function<void()>;
       static constexpr bool JOIN_THREADS = true;
+      static constexpr bool CATCH_EXCEPTIONS = true;
    };
    using ThreadPool = WorkerPool<TestWorkerPoolTraits>;
 

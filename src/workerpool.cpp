@@ -125,19 +125,23 @@ private:
    void InvokeGuarded(F t) noexcept
    {
       m_busyCount.fetch_add(1, std::memory_order_acq_rel);
-      try {
+      if constexpr (Traits::CATCH_EXCEPTIONS) {
+         try {
+            t();
+         }
+         catch (const std::exception & e) {
+            std::ostringstream logging;
+            logging << "Uncaught exception in thread " << std::this_thread::get_id() << ": "
+                    << e.what();
+            m_logger(logging.str());
+         }
+         catch (...) {
+            std::ostringstream logging;
+            logging << "Uncaught exception in thread " << std::this_thread::get_id();
+            m_logger(logging.str());
+         }
+      } else {
          t();
-      }
-      catch (const std::exception & e) {
-         std::ostringstream logging;
-         logging << "Uncaught exception in thread " << std::this_thread::get_id() << ": "
-                 << e.what();
-         m_logger(logging.str());
-      }
-      catch (...) {
-         std::ostringstream logging;
-         logging << "Uncaught exception in thread " << std::this_thread::get_id();
-         m_logger(logging.str());
       }
       m_busyCount.fetch_sub(1, std::memory_order_acq_rel);
    }
