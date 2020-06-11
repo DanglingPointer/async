@@ -846,7 +846,7 @@ protected:
 
 TEST_F(WorkerPoolFixture, workerpool_executes_in_parallel_in_different_threads)
 {
-   ThreadPool p(GetLogger(), GetTime());
+   ThreadPool p(GetLogger(), []{ return true; }, []{}, GetTime());
    std::this_thread::sleep_for(500ms);
    EXPECT_EQ(2u, p.GetWorkerCount());
 
@@ -885,7 +885,7 @@ TEST_F(WorkerPoolFixture, workerpool_executes_in_parallel_in_different_threads)
 
 TEST_F(WorkerPoolFixture, workerpool_grows_until_max_capacity)
 {
-   ThreadPool p(GetLogger(), GetTime());
+   ThreadPool p(GetLogger(), []{ return true; }, []{}, GetTime());
    std::this_thread::sleep_for(500ms);
 
    std::atomic_uint32_t startedCount = 0U;
@@ -921,7 +921,7 @@ TEST_F(WorkerPoolFixture, workerpool_grows_until_max_capacity)
 
 TEST_F(WorkerPoolFixture, timer_fires_after_timeout)
 {
-   ThreadPool p(GetLogger(), GetTime());
+   ThreadPool p(GetLogger(), []{ return true; }, []{}, GetTime());
    std::this_thread::sleep_for(500ms);
 
    std::atomic_bool done = false;
@@ -965,7 +965,7 @@ TEST_F(WorkerPoolFixture, timer_fires_after_timeout)
 
 TEST_F(WorkerPoolFixture, worker_catches_exceptions)
 {
-   ThreadPool p(GetLogger(), GetTime());
+   ThreadPool p(GetLogger(), []{ return true; }, []{}, GetTime());
    std::this_thread::sleep_for(500ms);
 
    std::atomic_bool done = false;
@@ -977,6 +977,7 @@ TEST_F(WorkerPoolFixture, worker_catches_exceptions)
    while(!done)
       std::this_thread::yield();
 
+   std::this_thread::sleep_for(100ms);
    std::lock_guard lg(logMutex);
    EXPECT_EQ(1u, loglines.size());
 

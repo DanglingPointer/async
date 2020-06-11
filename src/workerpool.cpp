@@ -74,12 +74,16 @@ class WorkerPool<Traits>::WorkerCtx
 public:
    using Task = typename Traits::TaskType;
 
-   explicit WorkerCtx(std::function<void(std::string)> && logger)
+   WorkerCtx(std::function<void(std::string)> && logger,
+             std::function<bool()> && onWorkerStartHandler,
+             std::function<void()> && onWorkerStopHandler)
       : m_queue(Traits::MAX_SIZE)
       , m_logger(std::move(logger))
       , m_stopped(false)
       , m_workerCount(0U)
       , m_busyCount(0U)
+      , m_onWorkerStartHandler(std::move(onWorkerStartHandler))
+      , m_onWorkerStopHandler(std::move(onWorkerStopHandler))
    {}
    void Stop() noexcept
    {
@@ -99,6 +103,8 @@ public:
    }
    static void RunMandatoryWorker(std::shared_ptr<WorkerCtx> ctx)
    {
+      if (!ctx->m_onWorkerStartHandler())
+         return;
       ctx->m_workerCount.fetch_add(1, std::memory_order_acq_rel);
       Task t;
       while (!ctx->m_stopped.load(std::memory_order_relaxed)) {
@@ -106,9 +112,12 @@ public:
          ctx->InvokeGuarded(t);
       }
       ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
+      ctx->m_onWorkerStopHandler();
    }
    static void RunOptionalWorker(std::shared_ptr<WorkerCtx> ctx)
    {
+      if (!ctx->m_onWorkerStartHandler())
+         return;
       ctx->m_workerCount.fetch_add(1, std::memory_order_acq_rel);
       Task t;
       while (!ctx->m_stopped.load(std::memory_order_relaxed)) {
@@ -118,6 +127,7 @@ public:
          ctx->InvokeGuarded(t);
       }
       ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
+      ctx->m_onWorkerStopHandler();
    }
 
 private:
@@ -151,13 +161,19 @@ private:
    std::atomic_bool m_stopped;
    std::atomic_uint32_t m_workerCount;
    std::atomic_uint32_t m_busyCount;
+   const std::function<bool()> m_onWorkerStartHandler;
+   const std::function<void()> m_onWorkerStopHandler;
 };
 
 template <typename Traits>
 WorkerPool<Traits>::WorkerPool(std::function<void(std::string)> logger,
+                               std::function<bool()> onWorkerStartHandler,
+                               std::function<void()> onWorkerStopHandler,
                                std::function<std::chrono::steady_clock::time_point()> now)
    : m_timer(std::make_shared<TimerCtx>(std::move(now)))
-   , m_ctx(std::make_shared<WorkerCtx>(std::move(logger)))
+   , m_ctx(std::make_shared<WorkerCtx>(std::move(logger),
+                                       std::move(onWorkerStartHandler),
+                                       std::move(onWorkerStopHandler)))
 {
    for (size_t i = 0; i < Traits::MIN_SIZE; ++i)
       std::thread(WorkerCtx::RunMandatoryWorker, m_ctx).detach();

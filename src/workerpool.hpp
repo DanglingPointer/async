@@ -54,6 +54,8 @@ public:
 
    WorkerPool(
       std::function<void(std::string)> logger,
+      std::function<bool()> onWorkerStartHandler = [] { return true; },
+      std::function<void()> onWorkerStopHandler = []{},
       std::function<std::chrono::steady_clock::time_point()> now = std::chrono::steady_clock::now);
    ~WorkerPool();
 
