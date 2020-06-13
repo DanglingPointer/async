@@ -34,13 +34,13 @@ struct DefaultWorkerPoolTraits
 {
    static constexpr size_t MIN_SIZE = 2U;
    static constexpr size_t MAX_SIZE = 5U;
-   static constexpr auto MAX_LINGER = std::chrono::seconds(10);
+   static constexpr auto MAX_LINGER = std::chrono::minutes(3);
    static constexpr auto TIMER_RESOLUTION = std::chrono::milliseconds(100);
    using TaskType = std::function<void()>;
    static constexpr bool JOIN_THREADS = true;
    static constexpr bool CATCH_EXCEPTIONS = true;
+   static constexpr bool WITH_TIMER = true;
 
-   static_assert(MIN_SIZE > 0);
    static_assert(MAX_SIZE >= MIN_SIZE);
 };
 

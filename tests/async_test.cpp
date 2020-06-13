@@ -817,6 +817,7 @@ protected:
       using TaskType = std::function<void()>;
       static constexpr bool JOIN_THREADS = true;
       static constexpr bool CATCH_EXCEPTIONS = true;
+      static constexpr bool WITH_TIMER = true;
    };
    using ThreadPool = WorkerPool<TestWorkerPoolTraits>;
 
@@ -976,6 +977,7 @@ TEST_F(WorkerPoolFixture, worker_catches_exceptions)
 
    while(!done)
       std::this_thread::yield();
+   std::this_thread::sleep_for(100ms);
 
    std::lock_guard lg(logMutex);
    EXPECT_EQ(1u, loglines.size());

@@ -156,18 +156,22 @@ private:
 template <typename Traits>
 WorkerPool<Traits>::WorkerPool(std::function<void(std::string)> logger,
                                std::function<std::chrono::steady_clock::time_point()> now)
-   : m_timer(std::make_shared<TimerCtx>(std::move(now)))
+   : m_timer(Traits::WITH_TIMER ? std::make_shared<TimerCtx>(std::move(now)) : nullptr)
    , m_ctx(std::make_shared<WorkerCtx>(std::move(logger)))
 {
    for (size_t i = 0; i < Traits::MIN_SIZE; ++i)
       std::thread(WorkerCtx::RunMandatoryWorker, m_ctx).detach();
-   std::thread(TimerCtx::RunTimer, m_timer).detach();
+   if constexpr (Traits::WITH_TIMER) {
+      std::thread(TimerCtx::RunTimer, m_timer).detach();
+   }
 }
 
 template <typename Traits>
 WorkerPool<Traits>::~WorkerPool()
 {
-   m_timer->Stop();
+   if constexpr (Traits::WITH_TIMER) {
+      m_timer->Stop();
+   }
    m_ctx->Stop();
    for (size_t i = 0; i < m_ctx->GetWorkerCount(); ++i)
       m_ctx->AddTask([] {
@@ -192,6 +196,7 @@ void WorkerPool<Traits>::ExecuteTask(Task task)
 template <typename Traits>
 void WorkerPool<Traits>::ExecuteTaskIn(std::chrono::milliseconds time, Task task)
 {
+   static_assert(Traits::WITH_TIMER, "This pool doesn't support delayed execution");
    m_timer->Schedule(time, [ctx = m_ctx, t = std::move(task)]() mutable {
       ctx->AddTask(std::move(t));
    });
@@ -200,6 +205,7 @@ void WorkerPool<Traits>::ExecuteTaskIn(std::chrono::milliseconds time, Task task
 template <typename Traits>
 void WorkerPool<Traits>::ExecuteTaskAt(std::chrono::steady_clock::time_point time, Task task)
 {
+   static_assert(Traits::WITH_TIMER, "This pool doesn't support delayed execution");
    m_timer->Schedule(time, [ctx = m_ctx, t = std::move(task)]() mutable {
       ctx->AddTask(std::move(t));
    });
