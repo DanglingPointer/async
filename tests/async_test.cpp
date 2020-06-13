@@ -817,6 +817,7 @@ protected:
       using TaskType = std::function<void()>;
       static constexpr bool JOIN_THREADS = true;
       static constexpr bool CATCH_EXCEPTIONS = true;
+      static constexpr bool WITH_TIMER = true;
    };
    using ThreadPool = WorkerPool<TestWorkerPoolTraits>;
 
