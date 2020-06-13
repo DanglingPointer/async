@@ -1,6 +1,8 @@
+#include "workerpoolwrapper.hpp"
 #include <gtest/gtest.h>
 #include <deque>
 #include <functional>
+#include <future>
 #include <limits>
 #include <optional>
 #include <unordered_set>
@@ -8,8 +10,6 @@
 #include "future.hpp"
 #include "canceller.hpp"
 #include "mempool.hpp"
-#include "workerpool.hpp"
-#include "workerpool.cpp"
 
 namespace {
 using namespace async;
@@ -984,6 +984,91 @@ TEST_F(WorkerPoolFixture, worker_catches_exceptions)
 
    const char loglineStart[] = "Uncaught exception in thread";
    EXPECT_STREQ(loglineStart, loglines.back().substr(0, sizeof(loglineStart) - 1).c_str());
+}
+
+struct Counter
+{
+   size_t * copyCount;
+   size_t * moveCount;
+   Counter(size_t * copyCount, size_t * moveCount)
+      : copyCount(copyCount)
+      , moveCount(moveCount)
+   {}
+   Counter(const Counter & rhs)
+      : copyCount(rhs.copyCount)
+      , moveCount(rhs.moveCount)
+   {
+      ++(*copyCount);
+   }
+   Counter(Counter && rhs)
+       : copyCount(rhs.copyCount)
+       , moveCount(rhs.moveCount)
+   {
+      ++(*moveCount);
+   }
+   void doStuff(std::promise<void> & p)
+   {
+      p.set_value();
+   }
+};
+
+void foo(std::promise<void> * arg1, Counter c)
+{
+   c.doStuff(*arg1);
+}
+
+TEST_F(WorkerPoolFixture, thread_pool_wrapper_compiles_and_works)
+{
+   ThreadPoolExecutor p;
+   p.open<2u, 4u, 1>();
+
+   {
+      size_t copyCount = 0;
+      size_t moveCount = 0;
+      std::promise<void> finished;
+      Counter c(&copyCount, &moveCount);
+
+      auto future = finished.get_future();
+      p.queue(foo, &finished, c);
+
+      auto status = future.wait_for(1s);
+      EXPECT_EQ(std::future_status::ready, status);
+//      printf("copyCount = %lu, moveCount = %lu\n", copyCount, moveCount);
+   }
+
+   {
+      size_t copyCount = 0;
+      size_t moveCount = 0;
+      std::promise<void> finished;
+      Counter c(&copyCount, &moveCount);
+
+      auto future = finished.get_future();
+      p.queue(foo, &finished, std::move(c));
+
+      auto status = future.wait_for(1s);
+      EXPECT_EQ(std::future_status::ready, status);
+//      printf("copyCount = %lu, moveCount = %lu\n", copyCount, moveCount);
+   }
+
+   {
+      size_t copyCount = 0;
+      size_t moveCount = 0;
+      std::promise<void> finished;
+
+      auto future = finished.get_future();
+      p.queue([&] {
+         copyCount = 42;
+         moveCount = 42;
+         finished.set_value();
+      });
+
+      auto status = future.wait_for(1s);
+      EXPECT_EQ(std::future_status::ready, status);
+      EXPECT_EQ(42, moveCount);
+      EXPECT_EQ(42, copyCount);
+   }
+
+   p.close();
 }
 
 } // namespace

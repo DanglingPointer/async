@@ -233,7 +233,4 @@ size_t WorkerPool<Traits>::GetWorkerCount() const
    return m_ctx->GetWorkerCount();
 }
 
-
-template class WorkerPool<DefaultWorkerPoolTraits>;
-
 } // namespace async
