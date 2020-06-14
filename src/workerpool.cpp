@@ -132,7 +132,7 @@ public:
 
 private:
    template <typename F>
-   void InvokeGuarded(F t) noexcept
+   void InvokeGuarded(F && t) noexcept
    {
       m_busyCount.fetch_add(1, std::memory_order_acq_rel);
       if constexpr (Traits::CATCH_EXCEPTIONS) {
@@ -210,19 +210,19 @@ void WorkerPool<Traits>::ExecuteTask(Task task)
 }
 
 template <typename Traits>
-void WorkerPool<Traits>::ExecuteTaskIn(std::chrono::milliseconds time, Task task)
+void WorkerPool<Traits>::ExecuteTaskIn(std::chrono::milliseconds delay, Task task)
 {
    static_assert(Traits::WITH_TIMER, "This pool doesn't support delayed execution");
-   m_timer->Schedule(time, [ctx = m_ctx, t = std::move(task)]() mutable {
+   m_timer->Schedule(delay, [ctx = m_ctx, t = std::move(task)]() mutable {
       ctx->AddTask(std::move(t));
    });
 }
 
 template <typename Traits>
-void WorkerPool<Traits>::ExecuteTaskAt(std::chrono::steady_clock::time_point time, Task task)
+void WorkerPool<Traits>::ExecuteTaskAt(std::chrono::steady_clock::time_point when, Task task)
 {
    static_assert(Traits::WITH_TIMER, "This pool doesn't support delayed execution");
-   m_timer->Schedule(time, [ctx = m_ctx, t = std::move(task)]() mutable {
+   m_timer->Schedule(when, [ctx = m_ctx, t = std::move(task)]() mutable {
       ctx->AddTask(std::move(t));
    });
 }

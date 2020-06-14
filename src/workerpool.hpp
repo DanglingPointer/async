@@ -11,12 +11,10 @@ namespace internal {
 template <typename F>
 struct AlwaysCopyable : F
 {
-private:
-   AlwaysCopyable(F & f)
-      : F(std::move(f))
-   {}
-
 public:
+   AlwaysCopyable(const F & f)
+      : F(f)
+   {}
    AlwaysCopyable(F && f)
       : F(std::move(f))
    {}
@@ -60,23 +58,23 @@ public:
    ~WorkerPool();
 
    template <typename F>
-   void Execute(F f)
+   void Execute(F && f)
    {
-      ExecuteTask(internal::AlwaysCopyable(std::move(f)));
+      ExecuteTask(internal::AlwaysCopyable(std::forward<F>(f)));
    }
    template <typename Rep, typename Period, typename F>
-   void ExecuteIn(std::chrono::duration<Rep, Period> after, F f)
+   void ExecuteIn(std::chrono::duration<Rep, Period> delay, F && f)
    {
-      ExecuteTaskIn(after, internal::AlwaysCopyable(std::move(f)));
+      ExecuteTaskIn(delay, internal::AlwaysCopyable(std::forward<F>(f)));
    }
    template <typename Clock, typename Dur, typename F>
-   void ExecuteAt(std::chrono::time_point<Clock, Dur> when, F f)
+   void ExecuteAt(std::chrono::time_point<Clock, Dur> when, F && f)
    {
-      ExecuteTaskAt(when, f);
+      ExecuteTaskAt(when, internal::AlwaysCopyable(std::forward<F>(f)));
    }
    void ExecuteTask(Task task);
-   void ExecuteTaskIn(std::chrono::milliseconds time, Task task);
-   void ExecuteTaskAt(std::chrono::steady_clock::time_point time, Task task);
+   void ExecuteTaskIn(std::chrono::milliseconds delay, Task task);
+   void ExecuteTaskAt(std::chrono::steady_clock::time_point when, Task task);
    size_t GetWorkerCount() const;
 
 private:

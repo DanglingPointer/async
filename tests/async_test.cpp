@@ -986,6 +986,74 @@ TEST_F(WorkerPoolFixture, worker_catches_exceptions)
    EXPECT_STREQ(loglineStart, loglines.back().substr(0, sizeof(loglineStart) - 1).c_str());
 }
 
+TEST_F(WorkerPoolFixture, worker_doesnt_do_unnecessary_copies)
+{
+   struct Counter
+   {
+      size_t * copyCount;
+      size_t * moveCount;
+      Counter(size_t * copyCount, size_t * moveCount)
+          : copyCount(copyCount)
+          , moveCount(moveCount)
+      {}
+      Counter(const Counter & rhs)
+          : copyCount(rhs.copyCount)
+          , moveCount(rhs.moveCount)
+      {
+         ++(*copyCount);
+      }
+      Counter(Counter && rhs)
+          : copyCount(rhs.copyCount)
+          , moveCount(rhs.moveCount)
+      {
+         ++(*moveCount);
+      }
+      void signalFinished(std::promise<void> & p)
+      {
+         p.set_value();
+      }
+   };
+
+   ThreadPool p(GetLogger(), GetTime());
+   std::this_thread::sleep_for(500ms);
+
+   {
+      size_t copyCount = 0;
+      size_t moveCount = 0;
+      std::promise<void> finished;
+
+      Counter c(&copyCount, &moveCount);
+      auto future = finished.get_future();
+
+      p.Execute([&finished, c = std::move(c)]() mutable {
+         c.signalFinished(finished);
+      });
+
+      auto status = future.wait_for(5s);
+      EXPECT_EQ(std::future_status::ready, status);
+      EXPECT_EQ(0U, copyCount);
+      EXPECT_GE(3U, moveCount);
+   }
+   {
+      size_t copyCount = 0;
+      size_t moveCount = 0;
+      std::promise<void> finished;
+
+      Counter c(&copyCount, &moveCount);
+      auto future = finished.get_future();
+      auto task = [&finished, c=std::move(c)]() mutable {
+         c.signalFinished(finished);
+      };
+
+      p.Execute(task);
+
+      auto status = future.wait_for(5s);
+      EXPECT_EQ(std::future_status::ready, status);
+      EXPECT_EQ(1U, copyCount);
+      EXPECT_GE(2U, moveCount);
+   }
+}
+
 struct Counter
 {
    size_t * copyCount;
