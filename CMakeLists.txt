@@ -3,6 +3,15 @@ project(async)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall -std=c++17")
+add_compile_options(
+        -Wall
+        -Wextra
+        -Werror
+        -Wpedantic
+        -Wimplicit-fallthrough
+        -Wno-sign-compare
+        -v
+)
 
 
 ##############################################################################
