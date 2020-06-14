@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cstdint>
 #include <exception>
+#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <sstream>
@@ -111,8 +112,8 @@ public:
          ctx->m_queue.wait_dequeue(t);
          ctx->InvokeGuarded(t);
       }
-      ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
       ctx->m_onWorkerStopHandler();
+      ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
    }
    static void RunOptionalWorker(std::shared_ptr<WorkerCtx> ctx)
    {
@@ -126,8 +127,8 @@ public:
             break;
          ctx->InvokeGuarded(t);
       }
-      ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
       ctx->m_onWorkerStopHandler();
+      ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
    }
 
 private:
@@ -189,10 +190,22 @@ WorkerPool<Traits>::~WorkerPool()
       m_timer->Stop();
    }
    m_ctx->Stop();
-   for (size_t i = 0; i < m_ctx->GetWorkerCount(); ++i)
-      m_ctx->AddTask([] {
-         std::this_thread::sleep_for(100ms);
+
+   std::condition_variable cv;
+   std::mutex mut;
+   bool proceed = false;
+   for (size_t i = 0; i < m_ctx->GetWorkerCount(); ++i) {
+      m_ctx->AddTask([&] {
+         std::unique_lock lk(mut);
+         cv.wait(lk, [&] { return proceed; });
       });
+   }
+   {
+      std::lock_guard lg(mut);
+      proceed = true;
+   }
+   cv.notify_all();
+
    if constexpr (Traits::JOIN_THREADS) {
       while (m_ctx->GetWorkerCount())
          std::this_thread::yield();
