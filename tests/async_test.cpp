@@ -1014,7 +1014,7 @@ TEST_F(WorkerPoolFixture, worker_doesnt_do_unnecessary_copies)
       }
    };
 
-   ThreadPool p(GetLogger(), GetTime());
+   ThreadPool p(GetLogger(), []{ return true; }, []{}, GetTime());
    std::this_thread::sleep_for(500ms);
 
    {
@@ -1101,7 +1101,8 @@ TEST_F(WorkerPoolFixture, thread_pool_wrapper_compiles_and_works)
 
       auto status = future.wait_for(1s);
       EXPECT_EQ(std::future_status::ready, status);
-//      printf("copyCount = %lu, moveCount = %lu\n", copyCount, moveCount);
+      EXPECT_EQ(1, copyCount);
+      EXPECT_GE(2, moveCount);
    }
 
    {
@@ -1115,7 +1116,8 @@ TEST_F(WorkerPoolFixture, thread_pool_wrapper_compiles_and_works)
 
       auto status = future.wait_for(1s);
       EXPECT_EQ(std::future_status::ready, status);
-//      printf("copyCount = %lu, moveCount = %lu\n", copyCount, moveCount);
+      EXPECT_EQ(0, copyCount);
+      EXPECT_GE(3, moveCount);
    }
 
    {
