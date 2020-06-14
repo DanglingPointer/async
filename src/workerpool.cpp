@@ -4,7 +4,7 @@
 #include <atomic>
 #include <cstdint>
 #include <exception>
-#include <condition_variable>
+#include <future>
 #include <map>
 #include <mutex>
 #include <sstream>
@@ -81,7 +81,6 @@ public:
       : m_queue(Traits::MAX_SIZE)
       , m_logger(std::move(logger))
       , m_stopped(false)
-      , m_workerCount(0U)
       , m_busyCount(0U)
       , m_onWorkerStartHandler(std::move(onWorkerStartHandler))
       , m_onWorkerStopHandler(std::move(onWorkerStopHandler))
@@ -98,28 +97,21 @@ public:
    {
       return m_busyCount.load(std::memory_order_acquire);
    }
-   uint32_t GetWorkerCount() const noexcept
-   {
-      return m_workerCount.load(std::memory_order_acquire);
-   }
    static void RunMandatoryWorker(std::shared_ptr<WorkerCtx> ctx)
    {
       if (!ctx->m_onWorkerStartHandler())
          return;
-      ctx->m_workerCount.fetch_add(1, std::memory_order_acq_rel);
       Task t;
       while (!ctx->m_stopped.load(std::memory_order_relaxed)) {
          ctx->m_queue.wait_dequeue(t);
          ctx->InvokeGuarded(t);
       }
       ctx->m_onWorkerStopHandler();
-      ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
    }
    static void RunOptionalWorker(std::shared_ptr<WorkerCtx> ctx)
    {
       if (!ctx->m_onWorkerStartHandler())
          return;
-      ctx->m_workerCount.fetch_add(1, std::memory_order_acq_rel);
       Task t;
       while (!ctx->m_stopped.load(std::memory_order_relaxed)) {
          bool dequeued = ctx->m_queue.wait_dequeue_timed(t, Traits::MAX_LINGER);
@@ -128,7 +120,6 @@ public:
          ctx->InvokeGuarded(t);
       }
       ctx->m_onWorkerStopHandler();
-      ctx->m_workerCount.fetch_sub(1, std::memory_order_acq_rel);
    }
 
 private:
@@ -160,7 +151,6 @@ private:
    moodycamel::BlockingConcurrentQueue<Task> m_queue;
    const std::function<void(std::string)> m_logger;
    std::atomic_bool m_stopped;
-   std::atomic_uint32_t m_workerCount;
    std::atomic_uint32_t m_busyCount;
    const std::function<bool()> m_onWorkerStartHandler;
    const std::function<void()> m_onWorkerStopHandler;
@@ -191,23 +181,17 @@ WorkerPool<Traits>::~WorkerPool()
    }
    m_ctx->Stop();
 
-   std::condition_variable cv;
-   std::mutex mut;
-   bool proceed = false;
-   for (size_t i = 0; i < m_ctx->GetWorkerCount(); ++i) {
-      m_ctx->AddTask([&] {
-         std::unique_lock lk(mut);
-         cv.wait(lk, [&] { return proceed; });
+   std::promise<void> ready;
+   std::shared_future<void> proceed(ready.get_future());
+   for (size_t i = 0; i < m_ctx.use_count() - 1; ++i) {
+      m_ctx->AddTask([proceed] {
+         proceed.wait();
       });
    }
-   {
-      std::lock_guard lg(mut);
-      proceed = true;
-   }
-   cv.notify_all();
+   ready.set_value();
 
    if constexpr (Traits::JOIN_THREADS) {
-      while (m_ctx->GetWorkerCount())
+      while (m_ctx.use_count() > 1)
          std::this_thread::yield();
    }
 }
@@ -216,7 +200,7 @@ template <typename Traits>
 void WorkerPool<Traits>::ExecuteTask(Task task)
 {
    m_ctx->AddTask(std::move(task));
-   uint32_t workerCount = m_ctx->GetWorkerCount();
+   uint32_t workerCount = m_ctx.use_count() - 1;
    if (workerCount < Traits::MAX_SIZE)
       if (workerCount == m_ctx->GetBusyCount())
          std::thread(WorkerCtx::RunOptionalWorker, m_ctx).detach();
@@ -243,7 +227,7 @@ void WorkerPool<Traits>::ExecuteTaskAt(std::chrono::steady_clock::time_point whe
 template <typename Traits>
 size_t WorkerPool<Traits>::GetWorkerCount() const
 {
-   return m_ctx->GetWorkerCount();
+   return m_ctx.use_count() - 1;
 }
 
 } // namespace async
