@@ -1,12 +1,7 @@
 #include <gtest/gtest.h>
 #include <deque>
-#include <functional>
-#include <future>
 #include <limits>
-#include <optional>
 #include "future.hpp"
-#include "callbacks.hpp"
-#include "callbackmanager.hpp"
 
 namespace {
 using namespace async;
@@ -279,97 +274,6 @@ TEST_F(AsyncFixture, operator_OR_cancels_the_last_task)
    }));
    ProcessTasks();
    EXPECT_FALSE(done2);
-}
-
-
-class CallbackV2Fixture : public ::testing::Test
-{
-protected:
-   CallbackV2Fixture()
-      : mgr(std::make_unique<v2::CallbackManager>())
-   {}
-
-   void invokeCallback(v2::Callback<int> cb, int arg)
-   {
-      cb(arg);
-   }
-
-   void invokeCallback(v2::Callback<> cb)
-   {
-      cb();
-   }
-
-   std::unique_ptr<v2::CallbackManager> mgr;
-};
-
-TEST_F(CallbackV2Fixture, callback_runs_while_mgr_is_alive)
-{
-   int result = 0;
-   auto lambda = [&] (int i) { result = i; };
-   invokeCallback(mgr->Cb(lambda), 42);
-   EXPECT_EQ(42, result);
-
-   v2::Callback<int> secondCb(mgr->Cb(std::move(lambda)));
-   EXPECT_TRUE(mgr->HasPending());
-   mgr.reset();
-   secondCb(43);
-   EXPECT_EQ(42, result);
-}
-
-TEST_F(CallbackV2Fixture, correct_number_of_copy_and_move_operations)
-{
-   struct Counter
-   {
-      size_t * copyCount;
-      size_t * moveCount;
-      Counter(size_t * copyCount, size_t * moveCount)
-          : copyCount(copyCount)
-          , moveCount(moveCount)
-      {}
-      Counter(const Counter & rhs)
-          : copyCount(rhs.copyCount)
-          , moveCount(rhs.moveCount)
-      {
-         ++(*copyCount);
-      }
-      Counter(Counter && rhs)
-          : copyCount(rhs.copyCount)
-          , moveCount(rhs.moveCount)
-      {
-         ++(*moveCount);
-      }
-   };
-   size_t copyCount = 0;
-   size_t moveCount = 0;
-
-   Counter myCounter(&copyCount, &moveCount);
-   auto lambda = [myCounter] { };
-   EXPECT_EQ(1u, copyCount);
-   EXPECT_EQ(0u, moveCount);
-
-   copyCount = 0;
-   moveCount = 0;
-
-   invokeCallback(mgr->Cb(lambda));
-   EXPECT_EQ(1u, copyCount);
-   EXPECT_EQ(1u, moveCount);
-
-   copyCount = 0;
-   moveCount = 0;
-
-   invokeCallback(mgr->Cb(std::move(lambda)));
-   EXPECT_EQ(0u, copyCount);
-   EXPECT_EQ(2u, moveCount);
-}
-
-void foo(std::string & s) { s = "Hello World"; }
-
-TEST_F(CallbackV2Fixture, adapter_works_with_function_pointers)
-{
-   std::string s;
-   v2::Callback<std::string &> cb = (*mgr)(&foo);
-   cb(s);
-   EXPECT_STREQ("Hello World", s.c_str());
 }
 
 } // namespace

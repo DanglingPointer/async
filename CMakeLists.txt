@@ -53,7 +53,8 @@ add_library(async
 add_executable(async_test
                tests/async_test.cpp
                tests/callbackv1_test.cpp
-               tests/worker_test.cpp)
+               tests/worker_test.cpp
+               tests/callbackv2_test.cpp)
 target_link_libraries(async_test
                       async
                       gtest_main)
