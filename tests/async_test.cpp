@@ -1043,4 +1043,25 @@ TEST(WorkerTest, worker_handles_uncaught_exceptions)
    EXPECT_STREQ("test exception", exceptionWhat.c_str());
 }
 
+struct NonCopyable
+{
+   NonCopyable() = default;
+   NonCopyable(NonCopyable &&) = default;
+   NonCopyable(const NonCopyable &) = delete;
+   NonCopyable & operator=(NonCopyable &&) = default;
+   NonCopyable & operator=(const NonCopyable &) = delete;
+};
+
+TEST(AlwaysCopyableTest, always_copyable_makes_uncopyable_copyable)
+{
+   bool works = false;
+   NonCopyable nc;
+   std::function<void()> f(
+       async::internal::AlwaysCopyable([nc = std::move(nc), &works] {
+          works = true;
+       }));
+   f();
+   EXPECT_TRUE(works);
+}
+
 } // namespace

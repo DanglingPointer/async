@@ -5,28 +5,9 @@
 #include <functional>
 #include <memory>
 
+#include "alwayscopyable.hpp"
+
 namespace async {
-namespace internal {
-
-template <typename F>
-struct AlwaysCopyable : F
-{
-public:
-   AlwaysCopyable(const F & f)
-      : F(f)
-   {}
-   AlwaysCopyable(F && f)
-      : F(std::move(f))
-   {}
-   AlwaysCopyable(AlwaysCopyable && cc)
-      : AlwaysCopyable(static_cast<F &&>(cc))
-   {}
-   AlwaysCopyable(const AlwaysCopyable & c)
-      : AlwaysCopyable(static_cast<F &&>(const_cast<AlwaysCopyable &>(c)))
-   {}
-};
-
-} // namespace internal
 
 struct DefaultWorkerPoolTraits
 {
