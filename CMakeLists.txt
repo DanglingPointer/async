@@ -47,6 +47,7 @@ include_directories(${PROJECT_SOURCE_DIR}/src)
 add_library(async
             STATIC
             src/async.cpp
+            src/worker.cpp
             src/workerpool.cpp)
 
 add_executable(async_test
