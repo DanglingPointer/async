@@ -32,6 +32,7 @@ public:
 
 private:
    void Run();
+   void GetNextTask(Task & out);
 
    const Config m_config;
    bool m_stop;

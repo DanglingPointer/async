@@ -61,20 +61,7 @@ void Worker::Run()
    Task work;
 
    while (!m_stop) {
-      {
-         std::unique_lock lock(m_tasksSync);
-         m_filledSignal.wait(lock, [this] {
-            return !m_tasks.empty();
-         });
-         for (auto nextTimerTime = std::begin(m_tasks)->first;
-              nextTimerTime > std::chrono::steady_clock::now();) {
-            m_filledSignal.wait_until(lock, nextTimerTime);
-            nextTimerTime = std::begin(m_tasks)->first;
-         }
-         auto it = std::begin(m_tasks);
-         work = std::move(it->second);
-         m_tasks.erase(it);
-      }
+      GetNextTask(work);
       m_emptiedSignal.notify_one();
       try {
          work();
@@ -86,6 +73,22 @@ void Worker::Run()
          m_config.exceptionHandler(m_config.name, "unknown");
       }
    }
+}
+
+void Worker::GetNextTask(Task & out)
+{
+   std::unique_lock lock(m_tasksSync);
+   m_filledSignal.wait(lock, [this] {
+      return !m_tasks.empty();
+   });
+   for (auto nextTimerTime = std::begin(m_tasks)->first;
+        nextTimerTime > std::chrono::steady_clock::now();
+        nextTimerTime = std::begin(m_tasks)->first) {
+      m_filledSignal.wait_until(lock, nextTimerTime);
+   }
+   auto it = std::begin(m_tasks);
+   out = std::move(it->second);
+   m_tasks.erase(it);
 }
 
 } // namespace async
