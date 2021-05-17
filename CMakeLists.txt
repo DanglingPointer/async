@@ -51,7 +51,9 @@ add_library(async
             src/workerpool.cpp)
 
 add_executable(async_test
-               tests/async_test.cpp)
+               tests/async_test.cpp
+               tests/callbackv1_test.cpp
+               tests/worker_test.cpp)
 target_link_libraries(async_test
                       async
                       gtest_main)
