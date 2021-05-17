@@ -84,11 +84,13 @@ public:
    Callback & operator=(const Callback & other)
    {
       Callback(other).Swap(*this);
+      return *this;
    }
 
    Callback & operator=(Callback && other) noexcept(std::is_nothrow_swappable_v<Function>)
    {
       Callback(std::move(other)).Swap(*this);
+      return *this;
    }
 
    ~Callback()
