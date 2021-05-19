@@ -2,6 +2,18 @@
 #include <cassert>
 #include <utility>
 
+#ifndef NDEBUG
+#include <memory>
+namespace {
+auto memcheckDeleter = [](std::atomic_uint * count) {
+   assert(*count == 0u);
+   delete count;
+};
+std::unique_ptr<std::atomic_uint, decltype(memcheckDeleter)> memchecker(new std::atomic_uint(0u),
+                                                                        memcheckDeleter);
+} // namespace
+#endif
+
 namespace async {
 inline namespace v3 {
 
@@ -14,12 +26,18 @@ constexpr uint64_t SLAVE_MASK = ~MASTER_MASK;
 
 RefCounter * RefCounter::New()
 {
+#ifndef NDEBUG
+   (*memchecker)++;
+#endif
    return new RefCounter;
 }
 
 RefCounter::~RefCounter()
 {
+#ifndef NDEBUG
    assert(m_state.load(std::memory_order_relaxed) == 0u);
+   (*memchecker)--;
+#endif
 }
 
 void RefCounter::AddMaster() noexcept
