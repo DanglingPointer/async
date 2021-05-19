@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <string>
-#include "callbackmanager.hpp"
+#include "v2/callbackmanager.hpp"
 
 namespace {
 using namespace async;
