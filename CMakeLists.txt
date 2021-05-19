@@ -48,13 +48,18 @@ add_library(async
             STATIC
             src/v1/async.cpp
             src/worker.cpp
-            src/workerpool.cpp)
+            src/workerpool.cpp
+            src/v3/refcounter.cpp
+            src/v3/refcounter.hpp
+)
 
 add_executable(async_test
                tests/async_test.cpp
                tests/callbackv1_test.cpp
                tests/worker_test.cpp
-               tests/callbackv2_test.cpp)
+               tests/callbackv2_test.cpp
+               tests/callbackv3_test.cpp
+)
 target_link_libraries(async_test
                       async
                       gtest_main)
