@@ -105,6 +105,18 @@ RefCounterWrapper<T> & RefCounterWrapper<T>::operator=(RefCounterWrapper && othe
 }
 
 template <typename T>
+RefCounter * RefCounterWrapper<T>::Get() noexcept
+{
+   return m_refcounter;
+}
+
+template <typename T>
+const RefCounter * RefCounterWrapper<T>::Get() const noexcept
+{
+   return m_refcounter;
+}
+
+template <typename T>
 void RefCounterWrapper<T>::Swap(RefCounterWrapper & other) noexcept
 {
    std::swap(m_refcounter, other.m_refcounter);

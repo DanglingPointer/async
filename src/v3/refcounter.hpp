@@ -42,6 +42,9 @@ public:
    RefCounterWrapper & operator=(const RefCounterWrapper & other) noexcept;
    RefCounterWrapper & operator=(RefCounterWrapper && other) noexcept;
 
+   RefCounter * Get() noexcept;
+   const RefCounter * Get() const noexcept;
+
    void Swap(RefCounterWrapper & other) noexcept;
 
 private:
