@@ -49,6 +49,8 @@
  *
  */
 
+namespace async::v1 {
+
 namespace {
 constexpr uint8_t MASK_ALIVE = 1 << 7;
 constexpr uint8_t MASK_CANCELLED = 1 << 6;
@@ -56,77 +58,82 @@ constexpr int ID_LENGTH = 6;
 constexpr uint8_t MASK_ID = (1 << ID_LENGTH) - 1;
 } // namespace
 
-async::internal::AtomicFlagRef::AtomicFlagRef(std::atomic<uint8_t> * block) noexcept
+
+namespace internal {
+
+AtomicFlagRef::AtomicFlagRef(std::atomic<uint8_t> * block) noexcept
    : m_block(block)
 {}
-bool async::internal::AtomicFlagRef::IsEmpty() const noexcept
+bool AtomicFlagRef::IsEmpty() const noexcept
 {
    return m_block == nullptr;
 }
-bool async::internal::AtomicFlagRef::IsAlive() const noexcept
+bool AtomicFlagRef::IsAlive() const noexcept
 {
    assert(!IsEmpty());
    return (m_block->load() & MASK_ALIVE) != 0;
 }
-bool async::internal::AtomicFlagRef::IsCancelled() const noexcept
+bool AtomicFlagRef::IsCancelled() const noexcept
 {
    assert(!IsEmpty());
    return (m_block->load() & MASK_CANCELLED) != 0;
 }
-uint32_t async::internal::AtomicFlagRef::GetId() const noexcept
+uint32_t AtomicFlagRef::GetId() const noexcept
 {
    assert(!IsEmpty());
    return m_block->load() & MASK_ID;
 }
-void async::internal::AtomicFlagRef::Activate() noexcept
+void AtomicFlagRef::Activate() noexcept
 {
    assert(!IsEmpty());
    m_block->fetch_add(1);
    m_block->fetch_or(MASK_ALIVE);
    m_block->fetch_and(static_cast<uint8_t>(~MASK_CANCELLED));
 }
-void async::internal::AtomicFlagRef::Deactivate() noexcept
+void AtomicFlagRef::Deactivate() noexcept
 {
    assert(!IsEmpty());
    m_block->fetch_and(static_cast<uint8_t>(~MASK_ALIVE));
 }
-void async::internal::AtomicFlagRef::Cancel() noexcept
+void AtomicFlagRef::Cancel() noexcept
 {
    assert(!IsEmpty());
    m_block->fetch_or(MASK_CANCELLED);
 }
 
-bool async::internal::operator==(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept
+bool operator==(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept
 {
    return lhs.m_block == rhs.m_block;
 }
-bool async::internal::operator!=(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept
+bool operator!=(AtomicFlagRef lhs, AtomicFlagRef rhs) noexcept
 {
    return !(lhs == rhs);
 }
 
-const std::shared_ptr<async::internal::CancellerToken> & async::internal::GlobalCancellerToken()
+const std::shared_ptr<CancellerToken> & GlobalCancellerToken()
 {
    static auto s_token = std::make_shared<CancellerToken>();
    return s_token;
 }
 
-uint32_t async::internal::MakeCallbackId(AtomicFlagRef flagRef, size_t index) noexcept
+uint32_t MakeCallbackId(AtomicFlagRef flagRef, size_t index) noexcept
 {
    uint32_t ret = index << ID_LENGTH;
    ret |= flagRef.GetId();
    return ret;
 }
-size_t async::internal::GetFlagIndex(uint32_t callbackId) noexcept
+size_t GetFlagIndex(uint32_t callbackId) noexcept
 {
    return callbackId >> ID_LENGTH;
 }
-uint32_t async::internal::GetOperationId(uint32_t callbackId) noexcept
+uint32_t GetOperationId(uint32_t callbackId) noexcept
 {
    return callbackId & MASK_ID;
 }
 
-void async::OnAllCompleted::Detach()
+} // namespace internal
+
+void OnAllCompleted::Detach()
 {
    if (m_state) {
       assert(m_state->trackedCount >= 10'000U);
@@ -140,7 +147,7 @@ void async::OnAllCompleted::Detach()
    }
 }
 
-void async::OnAnyCompleted::Detach()
+void OnAnyCompleted::Detach()
 {
    if (m_state) {
       assert(m_state->trackedCount >= 10'000U);
@@ -155,3 +162,5 @@ void async::OnAnyCompleted::Detach()
       }
    }
 }
+
+} // namespace async::v1

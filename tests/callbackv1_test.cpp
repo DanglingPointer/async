@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
-#include "canceller.hpp"
+#include "v1/canceller.hpp"
 
 namespace {
-using namespace async;
+using namespace async::v1;
 
 class CancellerFixture
    : protected Canceller<>
@@ -199,11 +199,11 @@ TEST_F(CancellerFixture, on_all_completed_executes_once_all_have_completed)
 
    EXPECT_FALSE(allFinished);
 
-   async::Schedule(executor, std::move(cb1));
+   Schedule(executor, std::move(cb1));
    EXPECT_TRUE(cb1Finished);
    EXPECT_FALSE(allFinished);
 
-   async::Schedule(executor, std::move(cb2));
+   Schedule(executor, std::move(cb2));
    EXPECT_TRUE(cb2Finished);
    EXPECT_TRUE(allFinished);
 }
@@ -227,11 +227,11 @@ TEST_F(CancellerFixture, on_all_completed_executes_after_synchronizer_is_dead)
       sync.Track(cb2);
       EXPECT_FALSE(allFinished);
 
-      async::Schedule(executor, std::move(cb1));
+      Schedule(executor, std::move(cb1));
       EXPECT_TRUE(cb1Finished);
       EXPECT_FALSE(allFinished);
 
-      async::Schedule(executor, std::move(cb2));
+      Schedule(executor, std::move(cb2));
       EXPECT_TRUE(cb2Finished);
       EXPECT_FALSE(allFinished);
    }
@@ -285,7 +285,7 @@ TEST_F(CancellerFixture, on_any_completed_executes_once_first_has_completed)
 
    EXPECT_FALSE(anyFinished);
 
-   async::Schedule(executor, std::move(cb1));
+   Schedule(executor, std::move(cb1));
    EXPECT_TRUE(cb1Finished);
    EXPECT_FALSE(cb2Finished);
    EXPECT_TRUE(anyFinished);
@@ -310,7 +310,7 @@ TEST_F(CancellerFixture, on_any_completed_executes_after_synchronizer_is_dead)
       sync.Track(cb2);
       EXPECT_FALSE(anyFinished);
 
-      async::Schedule(executor, std::move(cb1));
+      Schedule(executor, std::move(cb1));
       EXPECT_TRUE(cb1Finished);
       EXPECT_FALSE(anyFinished);
       EXPECT_FALSE(cb2Finished);

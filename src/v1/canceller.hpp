@@ -22,7 +22,7 @@
 #include <stdexcept>
 #include "callback.hpp"
 
-namespace async {
+namespace async::v1 {
 namespace internal {
 
 template <size_t N>

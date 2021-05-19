@@ -25,7 +25,7 @@
 #include <tuple>
 #include <utility>
 
-namespace async {
+namespace async::v1 {
 namespace internal {
 
 class AtomicFlagRef
