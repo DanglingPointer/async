@@ -17,6 +17,9 @@ FetchContent_Declare(googletest
 # Prevent overriding the parent project's compiler/linker settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
+# Don't build gmock
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+
 FetchContent_MakeAvailable(googletest)
 
 
